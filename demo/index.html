@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>A* — demonstração visual</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    margin: 0; padding: 24px;
+    background: #f4f6f8; color: #1b2733;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  h1 { margin: 0; font-size: 1.4rem; }
+  p.sub { margin: 0; color: #5a6b7c; font-size: .95rem; }
+  .controles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button {
+    border: 1px solid #c3ccd6; border-radius: 8px; padding: 8px 14px;
+    background: #fff; cursor: pointer; font-size: .9rem;
+  }
+  button:hover { background: #e9eef3; }
+  button.primario { background: #2563eb; border-color: #2563eb; color: #fff; }
+  button.primario:hover { background: #1d4fd1; }
+  canvas { border: 1px solid #c3ccd6; border-radius: 8px; background: #fff; touch-action: none; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: .85rem; color: #44525f; }
+  .legenda span::before {
+    content: ""; display: inline-block; width: 12px; height: 12px;
+    border-radius: 3px; margin-right: 5px; vertical-align: -1px;
+    background: var(--c); border: 1px solid #9aa7b3;
+  }
+  #status { font-size: .95rem; min-height: 1.4em; }
+</style>
+</head>
+<body>
+  <h1>A* (A-estrela) — busca de caminho mínimo</h1>
+  <p class="sub">Clique e arraste na grade para desenhar paredes. f(v) = g(v) + h(v), heurística de Manhattan.</p>
+
+  <div class="controles">
+    <button class="primario" id="executar">&#9654; Executar A*</button>
+    <button id="limpar">Limpar paredes</button>
+    <button id="serpentina">Labirinto serpentina (pior caso)</button>
+    <button id="aleatorio">Obstáculos aleatórios (caso médio)</button>
+    <label>Velocidade
+      <input type="range" id="velocidade" min="1" max="60" value="12">
+    </label>
+  </div>
+
+  <canvas id="tela" width="800" height="500"></canvas>
+
+  <div class="legenda">
+    <span style="--c:#2ecc71">origem</span>
+    <span style="--c:#e74c3c">destino</span>
+    <span style="--c:#34495e">parede</span>
+    <span style="--c:#aed6f1">na fronteira (heap)</span>
+    <span style="--c:#5dade2">expandida</span>
+    <span style="--c:#f1c40f">caminho final</span>
+  </div>
+  <div id="status">Pronto.</div>
+
+<script>
+"use strict";
+// Cópia autocontida do A* de javascript/astar.js, instrumentada para gravar a
+// ordem de expansão e permitir a animação (sem imports: o arquivo funciona
+// aberto direto do disco, sem servidor).
+
+const LINHAS = 25, COLUNAS = 40, CELULA = 20;
+const ORIGEM = [12, 2], DESTINO = [12, 37];
+
+const tela = document.getElementById("tela");
+const ctx = tela.getContext("2d");
+const status_ = document.getElementById("status");
+
+let grade = criarGrade();
+let camadaBusca = null;   // {expansaoOrdenada, caminho, custo}
+let quadro = null;        // posição atual da animação
+let animacao = null;
+
+function criarGrade() {
+  return Array.from({ length: LINHAS }, () => new Array(COLUNAS).fill(0));
+}
+
+function manhattan(a, b) {
+  return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+}
+
+class MinHeap {
+  constructor() { this.itens = []; }
+  get tamanho() { return this.itens.length; }
+  static menor(a, b) {
+    if (a[0] !== b[0]) return a[0] < b[0];
+    if (a[1] !== b[1]) return a[1] < b[1];
+    return a[2] < b[2];
+  }
+  push(item) {
+    const v = this.itens; v.push(item);
+    let i = v.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (MinHeap.menor(v[i], v[p])) { [v[i], v[p]] = [v[p], v[i]]; i = p; }
+      else break;
+    }
+  }
+  pop() {
+    const v = this.itens, topo = v[0], fim = v.pop();
+    if (v.length) {
+      v[0] = fim;
+      let i = 0;
+      for (;;) {
+        const e = 2 * i + 1, d = 2 * i + 2;
+        let m = i;
+        if (e < v.length && MinHeap.menor(v[e], v[m])) m = e;
+        if (d < v.length && MinHeap.menor(v[d], v[m])) m = d;
+        if (m === i) break;
+        [v[i], v[m]] = [v[m], v[i]];
+        i = m;
+      }
+    }
+    return topo;
+  }
+}
+
+function astarInstrumentado(grid, start, goal) {
+  const idx = ([r, c]) => r * COLUNAS + c;
+  const heap = new MinHeap();
+  const gScore = new Map([[idx(start), 0]]);
+  const pai = new Map();
+  const expandido = new Set();
+  const expansaoOrdenada = [];
+  let ordem = 0;
+  const h0 = manhattan(start, goal);
+  heap.push([h0, h0, ordem++, start]);
+
+  while (heap.tamanho > 0) {
+    const [, , , v] = heap.pop();
+    const iv = idx(v);
+    if (expandido.has(iv)) continue;
+    expandido.add(iv);
+    expansaoOrdenada.push(v);
+
+    if (iv === idx(goal)) {
+      const caminho = [];
+      let atual = iv;
+      while (atual !== undefined) {
+        caminho.push([Math.floor(atual / COLUNAS), atual % COLUNAS]);
+        atual = pai.get(atual);
+      }
+      caminho.reverse();
+      return { expansaoOrdenada, caminho, custo: gScore.get(iv) };
+    }
+
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nr = v[0] + dr, nc = v[1] + dc;
+      if (nr >= 0 && nr < LINHAS && nc >= 0 && nc < COLUNAS && grid[nr][nc] === 0) {
+        const iu = nr * COLUNAS + nc;
+        if (expandido.has(iu)) continue;
+        const novoG = gScore.get(iv) + 1;
+        const gAtual = gScore.get(iu);
+        if (gAtual === undefined || novoG < gAtual) {
+          gScore.set(iu, novoG);
+          pai.set(iu, iv);
+          const hu = Math.abs(nr - goal[0]) + Math.abs(nc - goal[1]);
+          heap.push([novoG + hu, hu, ordem++, [nr, nc]]);
+        }
+      }
+    }
+  }
+  return { expansaoOrdenada, caminho: null, custo: Infinity };
+}
+
+function desenhar() {
+  ctx.clearRect(0, 0, tela.width, tela.height);
+
+  const expandidasVisiveis = new Set();
+  if (camadaBusca) {
+    const limite = quadro === null ? camadaBusca.expansaoOrdenada.length : quadro;
+    for (let i = 0; i < limite; i++) {
+      const [r, c] = camadaBusca.expansaoOrdenada[i];
+      expandidasVisiveis.add(r * COLUNAS + c);
+    }
+  }
+  const animTerminada = camadaBusca
+    && (quadro === null || quadro >= camadaBusca.expansaoOrdenada.length);
+
+  for (let r = 0; r < LINHAS; r++) {
+    for (let c = 0; c < COLUNAS; c++) {
+      let cor = "#ffffff";
+      if (grade[r][c] === 1) cor = "#34495e";
+      else if (expandidasVisiveis.has(r * COLUNAS + c)) cor = "#5dade2";
+      ctx.fillStyle = cor;
+      ctx.fillRect(c * CELULA, r * CELULA, CELULA, CELULA);
+    }
+  }
+
+  if (camadaBusca && animTerminada && camadaBusca.caminho) {
+    ctx.fillStyle = "#f1c40f";
+    for (const [r, c] of camadaBusca.caminho) {
+      ctx.fillRect(c * CELULA, r * CELULA, CELULA, CELULA);
+    }
+  }
+
+  ctx.fillStyle = "#2ecc71";
+  ctx.fillRect(ORIGEM[1] * CELULA, ORIGEM[0] * CELULA, CELULA, CELULA);
+  ctx.fillStyle = "#e74c3c";
+  ctx.fillRect(DESTINO[1] * CELULA, DESTINO[0] * CELULA, CELULA, CELULA);
+
+  ctx.strokeStyle = "#eef1f4";
+  for (let r = 0; r <= LINHAS; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * CELULA); ctx.lineTo(COLUNAS * CELULA, r * CELULA); ctx.stroke();
+  }
+  for (let c = 0; c <= COLUNAS; c++) {
+    ctx.beginPath(); ctx.moveTo(c * CELULA, 0); ctx.lineTo(c * CELULA, LINHAS * CELULA); ctx.stroke();
+  }
+}
+
+function pararAnimacao() {
+  if (animacao !== null) { cancelAnimationFrame(animacao); animacao = null; }
+}
+
+function executar() {
+  pararAnimacao();
+  camadaBusca = astarInstrumentado(grade, ORIGEM, DESTINO);
+  quadro = 0;
+  const total = camadaBusca.expansaoOrdenada.length;
+
+  function passo() {
+    quadro = Math.min(quadro + Number(document.getElementById("velocidade").value), total);
+    desenhar();
+    status_.textContent = `Nós expandidos: ${quadro} / ${total}`;
+    if (quadro < total) {
+      animacao = requestAnimationFrame(passo);
+    } else {
+      animacao = null;
+      status_.textContent = camadaBusca.caminho
+        ? `Concluído — nós expandidos: ${total}, custo do caminho: ${camadaBusca.custo}`
+        : `Sem caminho possível — nós expandidos: ${total}`;
+    }
+  }
+  animacao = requestAnimationFrame(passo);
+}
+
+function limparBusca() {
+  pararAnimacao();
+  camadaBusca = null;
+  quadro = null;
+  status_.textContent = "Pronto.";
+}
+
+// --- interação com o mouse (desenhar/apagar paredes) ---
+let desenhando = false, valorPincel = 1;
+
+function celulaDoEvento(ev) {
+  const rect = tela.getBoundingClientRect();
+  const c = Math.floor((ev.clientX - rect.left) / CELULA);
+  const r = Math.floor((ev.clientY - rect.top) / CELULA);
+  if (r < 0 || r >= LINHAS || c < 0 || c >= COLUNAS) return null;
+  return [r, c];
+}
+
+function ehTerminal(r, c) {
+  return (r === ORIGEM[0] && c === ORIGEM[1]) || (r === DESTINO[0] && c === DESTINO[1]);
+}
+
+tela.addEventListener("pointerdown", (ev) => {
+  const celula = celulaDoEvento(ev);
+  if (!celula) return;
+  const [r, c] = celula;
+  if (ehTerminal(r, c)) return;
+  desenhando = true;
+  valorPincel = grade[r][c] === 1 ? 0 : 1;
+  grade[r][c] = valorPincel;
+  limparBusca();
+  desenhar();
+});
+tela.addEventListener("pointermove", (ev) => {
+  if (!desenhando) return;
+  const celula = celulaDoEvento(ev);
+  if (!celula) return;
+  const [r, c] = celula;
+  if (ehTerminal(r, c)) return;
+  if (grade[r][c] !== valorPincel) {
+    grade[r][c] = valorPincel;
+    desenhar();
+  }
+});
+window.addEventListener("pointerup", () => { desenhando = false; });
+
+// --- botões ---
+document.getElementById("executar").addEventListener("click", executar);
+
+document.getElementById("limpar").addEventListener("click", () => {
+  grade = criarGrade();
+  limparBusca();
+  desenhar();
+});
+
+document.getElementById("serpentina").addEventListener("click", () => {
+  grade = criarGrade();
+  for (let r = 1; r < LINHAS - 1; r += 2) {
+    const abertura = (Math.floor(r / 2) % 2 === 0) ? COLUNAS - 1 : 0;
+    for (let c = 0; c < COLUNAS; c++) {
+      if (c !== abertura) grade[r][c] = 1;
+    }
+  }
+  for (const [r, c] of [ORIGEM, DESTINO]) grade[r][c] = 0;
+  limparBusca();
+  desenhar();
+});
+
+document.getElementById("aleatorio").addEventListener("click", () => {
+  grade = criarGrade();
+  for (let r = 0; r < LINHAS; r++) {
+    for (let c = 0; c < COLUNAS; c++) {
+      if (!ehTerminal(r, c) && Math.random() < 0.25) grade[r][c] = 1;
+    }
+  }
+  limparBusca();
+  desenhar();
+});
+
+desenhar();
+</script>
+</body>
+</html>

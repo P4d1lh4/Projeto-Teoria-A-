@@ -94,12 +94,18 @@ def agregar(medicoes):
 
 
 def serie(agregados, linguagem, cenario):
-    """Pontos (n, média, desvio) ordenados por n para uma série."""
+    """Pontos (n, média, desvio) ordenados por n para uma série.
+
+    O desvio é devolvido como par (inferior, superior) com o ramo inferior
+    limitado a 95% da média: no caso médio o desvio-padrão pode exceder a
+    média (variância entre grades sorteadas) e estouraria a escala log.
+    """
     chaves = sorted(k for k in agregados if k[0] == linguagem and k[1] == cenario)
     ns = [agregados[k]["n"] for k in chaves]
     medias = [agregados[k]["media_ms"] for k in chaves]
     desvios = [agregados[k]["desvio_ms"] for k in chaves]
-    return ns, medias, desvios
+    inferiores = [min(d, m * 0.95) for d, m in zip(desvios, medias)]
+    return ns, medias, (inferiores, desvios)
 
 
 def grafico_aderencia(agregados, cenario):
@@ -239,11 +245,12 @@ def escrever_resumo(agregados):
 
 def escrever_tabelas(agregados):
     """Tabelas em Markdown (tamanhos nomeados) para colar no relatório."""
+    rodadas = next(iter(agregados.values()))["rodadas"]
     linhas = ["# Tabelas de resultados",
               "",
               "Geradas automaticamente por `python python/charts.py` a partir de",
               "`results/resultados_python.csv` e `results/resultados_javascript.csv`",
-              "(média ± desvio-padrão de 30 rodadas por célula da tabela).",
+              f"(média ± desvio-padrão de {rodadas} rodadas por célula da tabela).",
               ""]
     for cenario in CENARIOS:
         linhas.append(f"## {NOME_CENARIO[cenario]}")
