@@ -2,7 +2,8 @@
  * Testes da implementação JavaScript do A* e dos geradores de cenário.
  *
  * Executar a partir da raiz do repositório:
- *     node --test javascript/test/
+ *     node --test javascript/test/astar.test.js
+ * (ou `npm test` de dentro de javascript/)
  */
 
 import { test } from "node:test";

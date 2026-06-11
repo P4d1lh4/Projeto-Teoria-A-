@@ -249,9 +249,11 @@ function limparBusca() {
 let desenhando = false, valorPincel = 1;
 
 function celulaDoEvento(ev) {
+  // clientLeft/clientTop compensam a borda CSS de 1px do canvas, para que
+  // o clique seja mapeado em relação à superfície de desenho.
   const rect = tela.getBoundingClientRect();
-  const c = Math.floor((ev.clientX - rect.left) / CELULA);
-  const r = Math.floor((ev.clientY - rect.top) / CELULA);
+  const c = Math.floor((ev.clientX - rect.left - tela.clientLeft) / CELULA);
+  const r = Math.floor((ev.clientY - rect.top - tela.clientTop) / CELULA);
   if (r < 0 || r >= LINHAS || c < 0 || c >= COLUNAS) return null;
   return [r, c];
 }
@@ -294,11 +296,14 @@ document.getElementById("limpar").addEventListener("click", () => {
 });
 
 document.getElementById("serpentina").addEventListener("click", () => {
+  // Origem e destino estão na MESMA LINHA, então as paredes do labirinto
+  // precisam ser VERTICAIS (colunas ímpares entre os terminais, com a
+  // abertura alternando entre o topo e a base) para forçar o zigue-zague.
   grade = criarGrade();
-  for (let r = 1; r < LINHAS - 1; r += 2) {
-    const abertura = (Math.floor(r / 2) % 2 === 0) ? COLUNAS - 1 : 0;
-    for (let c = 0; c < COLUNAS; c++) {
-      if (c !== abertura) grade[r][c] = 1;
+  for (let c = ORIGEM[1] + 1; c < DESTINO[1]; c += 2) {
+    const abertura = (Math.floor(c / 2) % 2 === 0) ? LINHAS - 1 : 0;
+    for (let r = 0; r < LINHAS; r++) {
+      if (r !== abertura) grade[r][c] = 1;
     }
   }
   for (const [r, c] of [ORIGEM, DESTINO]) grade[r][c] = 0;
