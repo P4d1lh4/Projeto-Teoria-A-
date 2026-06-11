@@ -1,0 +1,14 @@
+{
+  "name": "projeto-teoria-astar",
+  "version": "1.0.0",
+  "description": "Implementação e análise de complexidade do algoritmo A* (Teoria da Computação)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "benchmark": "node benchmark.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

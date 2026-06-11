@@ -41,7 +41,7 @@ com movimento em 4 direções, custo unitário e heurística de **distância de 
 python -m unittest discover -s python -v
 
 # JavaScript
-node --test javascript/test/
+node --test javascript/test/astar.test.js
 ```
 
 ### Verificação de equivalência entre as linguagens
