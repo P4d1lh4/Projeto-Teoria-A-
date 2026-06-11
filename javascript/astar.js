@@ -102,47 +102,48 @@ export function astar(grid, start, goal) {
     return { caminho: null, custo: Infinity, expandidos: 0 };
   }
 
-  // Células indexadas por r * colunas + c; vetores tipados para desempenho.
-  const total = linhas * colunas;
-  const gScore = new Int32Array(total).fill(-1); // -1 representa infinito
-  const pai = new Int32Array(total).fill(-1);
-  const expandido = new Uint8Array(total);
-
+  // Células indexadas por r * colunas + c. Map/Set espelham os dicionários
+  // da versão Python: a memória cresce só com a região explorada, mantendo a
+  // mesma assintótica nas duas implementações (sem inicialização Theta(n)).
   const idxOrigem = start[0] * colunas + start[1];
   const idxDestino = goal[0] * colunas + goal[1];
+
+  const gScore = new Map([[idxOrigem, 0]]);
+  const pai = new Map();
+  const expandido = new Set();
 
   const heap = new MinHeap();
   let ordem = 0;
   const h0 = manhattan(start, goal);
-  gScore[idxOrigem] = 0;
   heap.push([h0, h0, ordem++, idxOrigem]);
 
   let expandidos = 0;
 
   while (heap.tamanho > 0) {
     const [, , , v] = heap.pop();
-    if (expandido[v]) continue; // entrada obsoleta no heap
-    expandido[v] = 1;
+    if (expandido.has(v)) continue; // entrada obsoleta no heap
+    expandido.add(v);
     expandidos++;
 
     if (v === idxDestino) {
-      return { caminho: reconstruir(pai, v, colunas), custo: gScore[v], expandidos };
+      return { caminho: reconstruir(pai, v, colunas), custo: gScore.get(v), expandidos };
     }
 
     const r = Math.floor(v / colunas);
     const c = v % colunas;
-    const gv = gScore[v];
+    const gv = gScore.get(v);
 
     for (const [dr, dc] of DIRECOES) {
       const nr = r + dr;
       const nc = c + dc;
       if (nr >= 0 && nr < linhas && nc >= 0 && nc < colunas && grid[nr][nc] === LIVRE) {
         const u = nr * colunas + nc;
-        if (expandido[u]) continue;
+        if (expandido.has(u)) continue;
         const novoG = gv + 1;
-        if (gScore[u] === -1 || novoG < gScore[u]) {
-          gScore[u] = novoG;
-          pai[u] = v;
+        const gAtual = gScore.get(u);
+        if (gAtual === undefined || novoG < gAtual) {
+          gScore.set(u, novoG);
+          pai.set(u, v);
           const hu = Math.abs(nr - goal[0]) + Math.abs(nc - goal[1]);
           heap.push([novoG + hu, hu, ordem++, u]);
         }
@@ -156,9 +157,9 @@ export function astar(grid, start, goal) {
 /** Reconstrói o caminho seguindo os pais, do destino para a origem. */
 function reconstruir(pai, v, colunas) {
   const caminho = [];
-  while (v !== -1) {
+  while (v !== undefined) {
     caminho.push([Math.floor(v / colunas), v % colunas]);
-    v = pai[v];
+    v = pai.get(v);
   }
   caminho.reverse();
   return caminho;
