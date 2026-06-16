@@ -151,9 +151,10 @@ efetivo, mas não muda a classe no pior caso.
 | Python | 3.13.7 (CPython) |
 | Node.js | 22.21.1 (V8) |
 
-Durante as medições os programas em segundo plano foram minimizados; cada
-benchmark foi executado isoladamente (Python e Node em sequência, nunca em
-paralelo).
+Durante as medições os programas em segundo plano foram **fechados** (não apenas
+minimizados), conforme a diretriz de isolamento da especificação, para evitar
+ruídos nas medições; cada benchmark foi executado isoladamente (Python e Node em
+sequência, nunca em paralelo).
 
 ### 4.2 Precisão de tempo
 
