@@ -82,3 +82,8 @@ Requisito: `matplotlib` (`pip install matplotlib`).
 
 Abra `demo/index.html` no navegador para ver o A* explorando a grade em tempo real
 (útil para a apresentação oral).
+
+## Integrantes
+* Arthur Lins da Gama
+* Arthur Pedrosa Padilha
+* Pedro Torjal de Medeiros
