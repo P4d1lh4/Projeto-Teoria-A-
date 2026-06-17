@@ -1,40 +1,62 @@
 # Projeto Teoria da Computação — Algoritmo A* (A-estrela)
 
 Implementação e análise de complexidade do algoritmo **A\*** em **Python** e **JavaScript**,
-para a disciplina Teoria da Computação (Prof. Daniel Bezerra).
+para a disciplina Teoria da Computação (Prof. Daniel Bezerra — CESAR School, 2026).
+
+**Equipe:** Arthur Padilha, Pedro Tojal, Arthur Lins, Luis Guilherme
 
 O A* resolve o problema do **caminho mínimo entre dois pontos** em um grafo, guiado por uma
 heurística admissível. Neste projeto ele é aplicado a grades 2D (mapas com obstáculos),
 com movimento em 4 direções, custo unitário e heurística de **distância de Manhattan**.
 
+## Entregas
+
+| Arquivo | Descrição |
+|---|---|
+| `docs/relatorio_astar_abnt.docx` | Relatório completo formatado (ABNT NBR 14724) |
+| `docs/slides.html` | Slides da apresentação (abrir no navegador) |
+| `demo/index.html` | Demonstração visual interativa do A* |
+
 ## Estrutura do repositório
 
 ```
-├── python/              # Implementação em Python
-│   ├── astar.py         # Algoritmo A*
-│   ├── scenarios.py     # Geradores de cenário (melhor/médio/pior caso) + PRNG
-│   ├── benchmark.py     # Protocolo experimental (30 rodadas por cenário/tamanho)
-│   ├── charts.py        # Geração dos gráficos (matplotlib)
-│   └── test_astar.py    # Testes (unittest)
-├── javascript/          # Implementação em JavaScript (Node >= 18)
-│   ├── astar.js         # Algoritmo A* + heap binário
-│   ├── scenarios.js     # Geradores de cenário (idênticos aos de Python)
-│   ├── benchmark.js     # Protocolo experimental
-│   └── test/astar.test.js  # Testes (node:test)
+├── python/
+│   ├── astar.py             # Algoritmo A*
+│   ├── scenarios.py         # Geradores de cenário (melhor/médio/pior caso) + PRNG
+│   ├── benchmark.py         # Protocolo experimental (30 rodadas × cenário × tamanho)
+│   ├── charts.py            # Geração dos gráficos (matplotlib)
+│   └── test_astar.py        # Testes (unittest)
+├── javascript/
+│   ├── astar.js             # Algoritmo A* + heap binário próprio
+│   ├── scenarios.js         # Geradores de cenário (idênticos aos de Python)
+│   ├── benchmark.js         # Protocolo experimental
+│   └── test/astar.test.js   # Testes (node:test)
 ├── tools/
 │   └── verificar_equivalencia.py  # Prova que Py e JS processam entradas idênticas
-├── results/             # CSVs das medições + gráficos gerados
+├── results/
+│   ├── resultados_python.csv      # 540 medições Python (30 rodadas × 3 cenários × 6 tamanhos)
+│   ├── resultados_javascript.csv  # 540 medições JavaScript
+│   ├── resumo.csv                 # Médias e desvios-padrão agregados
+│   └── graficos/                  # 7 gráficos PNG gerados por charts.py
 ├── docs/
-│   ├── relatorio.md     # Relatório (base para o PDF)
-│   ├── slides.md        # Protótipo dos slides (formato Marp)
-│   └── slides.html      # Protótipo dos slides (abrir no navegador)
+│   ├── relatorio_astar_abnt.docx  # Relatório final (ABNT)
+│   ├── relatorio_abnt.md          # Fonte Markdown do relatório
+│   ├── gerar_relatorio.py         # Script que gerou o DOCX (python-docx)
+│   ├── slides.md                  # Fonte dos slides (Marp)
+│   ├── slides.html                # Slides prontos para apresentar (reveal.js)
+│   └── tabelas_resultados.md      # Tabelas geradas automaticamente por charts.py
 └── demo/
-    └── index.html       # Demonstração visual interativa do A* (para a apresentação)
+    └── index.html                 # Demonstração visual interativa (para a apresentação)
 ```
 
 ## Como executar
 
-### Testes
+### Pré-requisitos
+
+- Python 3.10+ com `matplotlib`: `pip install matplotlib`
+- Node.js 18+
+
+### Testes unitários
 
 ```bash
 # Python
@@ -53,30 +75,34 @@ mesmo número de nós e encontram caminhos de mesmo custo:
 python tools/verificar_equivalencia.py
 ```
 
-### Benchmarks (protocolo: 30 rodadas × 3 cenários × tamanhos)
+### Benchmarks
 
 ```bash
-python python/benchmark.py     # gera results/resultados_python.csv
-node javascript/benchmark.js   # gera results/resultados_javascript.csv
+python python/benchmark.py     # → results/resultados_python.csv
+node javascript/benchmark.js   # → results/resultados_javascript.csv
+```
+
+Modo rápido (5 rodadas, apenas os 3 tamanhos nomeados):
+
+```bash
+python python/benchmark.py --rapido
 ```
 
 ### Gráficos e tabelas
 
 ```bash
-python python/charts.py        # gera results/graficos/*.png e docs/tabelas_resultados.md
+python python/charts.py        # → results/graficos/*.png  +  docs/tabelas_resultados.md
 ```
-
-Requisito: `matplotlib` (`pip install matplotlib`).
 
 ## Cenários de teste
 
-| Cenário | Entrada | Comportamento esperado |
+| Cenário | Entrada | Complexidade |
 |---|---|---|
-| **Melhor caso** | Grade vazia, origem e destino na mesma linha | Heurística perfeita: expande só o caminho reto — Ω(√n) |
-| **Caso médio** | Obstáculos aleatórios (densidade 25%), 30 grades distintas por tamanho | Exploração parcial da grade |
-| **Pior caso** | Labirinto em serpentina | Heurística não ajuda: expande ~todas as células livres — O(n log n) |
+| **Melhor caso** | Grade vazia, caminho reto | Θ(√n) — expande exatamente √n vértices |
+| **Caso médio** | Obstáculos aleatórios 25%, 30 grades distintas | ≈ Θ(n) — ~8% das células |
+| **Pior caso** | Labirinto em serpentina | Θ(n log n) — ~50% das células |
 
-`n` = número de células da grade. Tamanhos nomeados: pequena (51×51), média (151×151), grande (301×301).
+`n` = número de células da grade. Tamanhos: pequena (51×51), média (151×151), grande (301×301).
 
 ## Demonstração visual
 
