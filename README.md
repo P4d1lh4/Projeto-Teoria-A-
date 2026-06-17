@@ -3,7 +3,7 @@
 Implementação e análise de complexidade do algoritmo **A\*** em **Python** e **JavaScript**,
 para a disciplina Teoria da Computação (Prof. Daniel Bezerra — CESAR School, 2026).
 
-**Equipe:** Arthur Padilha, Pedro Tojal, Arthur Lins, Luis Guilherme
+**Equipe:** Arthur Padilha, Pedro Tojal, Arthur Lins
 
 O A* resolve o problema do **caminho mínimo entre dois pontos** em um grafo, guiado por uma
 heurística admissível. Neste projeto ele é aplicado a grades 2D (mapas com obstáculos),
